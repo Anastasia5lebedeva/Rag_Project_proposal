@@ -1,0 +1,22 @@
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    container_name: pgvector16
+    environment:
+      POSTGRES_USER: cortex
+      POSTGRES_PASSWORD: cortex123
+      POSTGRES_DB: cortex_rag
+      TZ: Europe/Warsaw
+    ports:
+      - "5440:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cortex -d cortex_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
