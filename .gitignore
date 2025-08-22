@@ -1,17 +1,32 @@
+# Python
 __pycache__/
 *.py[cod]
-*.egg-info/
+*.pyo
+*.pyd
+
+# Venv / IDE
 .venv/
 venv/
-.idea/
-*.sql
-.venv/
-__pycache__/
-*.pyc
+.env/
 .idea/
 .vscode/
-node_modules/
-.dist/
+
+# Build artifacts
 build/
-logs/
-*.log
+dist/
+*.egg-info/
+
+# Тяжёлые/внешние файлы (храни вне git или через LFS)
+*.pdf
+*.zip
+*.tar.gz
+*.7z
+*.csv
+*.xlsx
+*.docx
+*.bin
+*.pt
+*.gguf
+*.onnx
+*.mp4
+*.mov
