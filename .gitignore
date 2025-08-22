@@ -4,4 +4,14 @@ __pycache__/
 .venv/
 venv/
 .idea/
-.DS_Store
+*.sql
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+node_modules/
+.dist/
+build/
+logs/
+*.log
