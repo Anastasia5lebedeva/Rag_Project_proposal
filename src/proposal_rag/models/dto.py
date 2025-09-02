@@ -1,31 +1,35 @@
 from __future__ import annotations
-from typing import Any, Dict, Optional, List
-from pydantic import BaseModel, Field, conlist
-
+from typing import Any, Dict, Optional
+from pydantic import BaseModel, Field, conlist, ConfigDict
+from datetime import datetime
+from typing import List
 
 
 JsonDict = Dict[str, Any]
-Vector1024 = conlist(float, min_length=1)
+Vector1024 = conlist(float, min_length=1024, max_length=1024)
+
+
+class DTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
+
+class ProposalRequestDTO(DTO):
+    query: str
+    context: List[str]
+    temperature: float = 0.1
+
+class ProposalResponseDTO(DTO):
+    markdown: str
+    sections: List[str] = Field(default_factory=list)
 
 
 class DBModel(BaseModel):
-    class Config:
-        populate_by_name = True
-        str_strip_whitespace = True
-        frozen = False
-
-
-class StgSection(DBModel):
-    document_id: str
-    order_idx: int
-    section_title: str
-    content: Optional[str] = None
-    meta: Optional[JsonDict] = None
-    text_md: Optional[str] = None
-    title_project: Optional[str] = None
-    section_key: str
-    lang: Optional[str] = None
-
+    model_config = ConfigDict(
+        populate_by_name=True,
+        str_strip_whitespace=True,
+        from_attributes=True,
+        validate_assignment=True,
+        frozen=False,
+    )
 
 class LlmContext(DBModel):
     id: int
@@ -46,15 +50,12 @@ class LlmContextForModel(DBModel):
     order_idx: Optional[int] = None
     text_md: Optional[str] = None
 
-
 class RetrieverSegment(DBModel):
     id: int
     context_id: int
     chunk_index: int
     text_norm: str
-    embedding_1024: Optional[Vector1024] = Field(
-        default=None, description="pgvector embedding (dim=1024)"
-    )
+    embedding: Optional[Vector1024] = Field(default=None, alias="embedding_1024", description="pgvector dim=1024")
     meta: Optional[JsonDict] = None
     section_key: Optional[str] = None
     lang: Optional[str] = None
@@ -65,13 +66,22 @@ class SectionTitleMap(DBModel):
     canon_type: str
 
 
+class EmbeddingCache(DBModel):
+    id: int
+    model: str
+    content_hash: str
+    content_norm: str
+    embedding: Vector1024
+    created_at: datetime
+
+
 __all__ = [
     "JsonDict",
     "Vector1024",
     "DBModel",
-    "StgSection",
     "LlmContext",
     "LlmContextForModel",
     "RetrieverSegment",
     "SectionTitleMap",
+    "EmbeddingCache",
 ]
