@@ -1,6 +1,6 @@
-BEGIN;
-
 CREATE SCHEMA IF NOT EXISTS rag;
+CREATE EXTENSION IF NOT EXISTS vector;
+
 
 DO $$
 BEGIN
@@ -15,7 +15,7 @@ BEGIN
 END $$;
 
 
-CCREATE TABLE IF NOT EXISTS rag.llm_contexts (
+CREATE TABLE IF NOT EXISTS rag.llm_contexts (
   id            BIGSERIAL PRIMARY KEY,
   document_id   TEXT NOT NULL,
   section_title TEXT,
@@ -47,32 +47,19 @@ CREATE TABLE IF NOT EXISTS rag._stg_sections (
   lang          TEXT
 );
 
-CREATE TABLE IF NOT EXISTS rag.retriever_segments (
-  id          BIGSERIAL PRIMARY KEY,
-  context_id  BIGINT  NOT NULL,
-  chunk_index INTEGER NOT NULL,
-  text_norm   TEXT    NOT NULL,
-  embedding   vector(1024),
-  meta        JSONB,
-  section_key TEXT,
-  lang        TEXT
-);
 
 CREATE TABLE IF NOT EXISTS rag.retriever_segments (
   id             BIGSERIAL PRIMARY KEY,
   context_id     BIGINT  NOT NULL,
   chunk_index    INTEGER NOT NULL,
   text_norm      TEXT    NOT NULL,
-  embedding   vector(1024),
+  embedding      vector(1024),
   meta           JSONB,
   section_key    TEXT,
   lang           TEXT
 );
 
-CREATE TABLE IF NOT EXISTS rag.section_title_map (
-  pattern    TEXT NOT NULL,
-  canon_type TEXT NOT NULL
-);
+
 
 CREATE TABLE IF NOT EXISTS rag.embedding_cache (
   id           BIGSERIAL PRIMARY KEY,
@@ -86,7 +73,45 @@ CREATE TABLE IF NOT EXISTS rag.embedding_cache (
     UNIQUE (model, kind, content_hash)
 );
 
+
+CREATE TABLE IF NOT EXISTS rag.section_title_map (
+  pattern    TEXT NOT NULL,
+  canon_type TEXT NOT NULL
+);
+
+
 CREATE INDEX IF NOT EXISTS idx_embedding_cache_model_hash
   ON rag.embedding_cache (model, content_hash);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_retriever_segments_ctx_chunk
+  ON rag.retriever_segments (context_id, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_retriever_segments_section
+  ON rag.retriever_segments (section_key);
+
+CREATE INDEX IF NOT EXISTS idx_retriever_segments_lang
+  ON rag.retriever_segments (lang);
+
+
+CREATE INDEX IF NOT EXISTS idx_llm_contexts_meta_gin
+  ON rag.llm_contexts USING GIN (meta);
+
+CREATE INDEX IF NOT EXISTS idx_retriever_segments_meta_gin
+  ON rag.retriever_segments USING GIN (meta);
+
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname='rag' AND indexname='idx_retriever_segments_embedding'
+  ) THEN
+    EXECUTE 'CREATE INDEX idx_retriever_segments_embedding
+             ON rag.retriever_segments
+             USING ivfflat (embedding vector_l2_ops)
+             WITH (lists = 100);';
+  END IF;
+END $$;
 
 COMMIT;
