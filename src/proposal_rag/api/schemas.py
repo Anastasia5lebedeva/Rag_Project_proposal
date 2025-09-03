@@ -1,64 +1,56 @@
 from __future__ import annotations
-from typing import Optional, List, Dict, Any
+
+from typing import Any, Dict, Optional, Literal, Annotated, List
+
 from pydantic import BaseModel, Field
-from pydantic import BaseModel, Field, conlist, constr
 
 
+StrNonEmpty = Annotated[str, Field(min_length=1)]
+ListNonEmptyStr = Annotated[list[StrNonEmpty], Field(min_length=1)]
+PosInt_1_50 = Annotated[int, Field(ge=1, le=50)]
+PosInt_1 = Annotated[int, Field(ge=1)]
 
 
 class HealthResponse(BaseModel):
-    status: str = Field(..., description="Service status: ok | error")
-    db: str = Field(..., description="PostgreSQL status")
-    vectordb: str = Field(..., description="Retriever segments status")
-    llm: str = Field(..., description="LLM service status (GPT/Claude/DeepSeek)")
-
-
-
-
-class AnalyzeRequest(BaseModel):
-    text: Optional[str] = Field(None, description="Plain text query from client")
+    status: Literal["ok", "fail"] = Field(..., description="Overall service status: ok | fail")
+    db: Literal["ok", "fail"] = Field(..., description="PostgreSQL status")
+    vectordb: Literal["ok", "fail"] = Field(..., description="Retriever segments / vector index status")
+    llm: Literal["ok", "fail"] = Field(..., description="LLM service status (GPT-4.1)")
 
 
 class AnalyzeResponse(BaseModel):
-    problem: str = Field(..., description="Client's problem description")
-    goals: List[str] = Field(..., description="Client goals")
-    keywords: List[str] = Field(..., description="Extracted keywords for search")
-
-
+    problem: StrNonEmpty = Field(..., description="Client's problem description (normalized)")
+    goals: list[str] = Field(default_factory=list, description="Client goals")
+    keywords: list[str] = Field(default_factory=list, description="Extracted keywords for search")
+    chunks: Optional[list[str]] = Field(default=None, description="Optional smart-chunks of the problem")
 
 
 class SearchHit(BaseModel):
-    chunk_index: int = Field(..., ge=0)
-    score: float = Field(..., ge=-1.0, le=1.0)
-    preview: str = Field(..., min_length=1)
-    source_meta: Optional[Dict[str, Any]] = None
-
-
-
-class GenerateRequest(BaseModel):
-    query: constr(min_length=1) = Field(..., description="Client query text")
-    context_chunks: conlist(constr(min_length=1), min_items=1) = Field(
-        ..., description="Ready-to-use text chunks for generation"
-    )
-
-
-class GenerateResponse(BaseModel):
-    proposal_text: str = Field(..., description="Generated commercial proposal text")
-    sections: Dict[str, str] = Field(
-        ..., description="Structured sections of proposal: e.g. { 'Problem': '...', 'Solution': '...' }"
-    )
-
+    chunk_index: Annotated[int, Field(ge=0)] = Field(..., description="Index of chunk in source")
+    score: Annotated[float, Field(ge=-1.0, le=1.0)] = Field(..., description="Similarity score")
+    preview: StrNonEmpty = Field(..., description="Short text preview")
+    source_meta: Optional[Dict[str, Any]] = Field(default=None, description="Original source metadata")
 
 
 class SearchRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="Search query")
-    top_k: int = Field(10, ge=1, le=50, description="Number of results to return")
+    query: StrNonEmpty = Field(..., description="Search query")
+    top_k: PosInt_1_50 = Field(10, description="Number of results to return")
 
 
 class SearchResponse(BaseModel):
-    total_chunks: int = Field(..., ge=0)
-    top_k: int = Field(..., ge=1)
-    query: str = Field(..., min_length=1)
+    total_chunks: Annotated[int, Field(ge=0)] = Field(..., description="Total available chunks")
+    top_k: PosInt_1 = Field(..., description="Requested top_k")
+    query: StrNonEmpty = Field(..., description="Echo of the query")
     results: List[SearchHit]
 
+
+class GenerateRequest(BaseModel):
+    queries: ListNonEmptyStr
+    top_k: PosInt_1_50 = Field(10)
+
+
+class GenerateResponse(BaseModel):
+    text: StrNonEmpty
+    used_chunks: Annotated[int, Field(ge=0)] = 0
+    sources: list[Dict[str, Any]] = Field(default_factory=list)
 

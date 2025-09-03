@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from enum import Enum
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field, conlist, ConfigDict
+from pydantic import BaseModel, Field, conlist, ConfigDict, field_validator
 from datetime import datetime
 from typing import List
 
@@ -10,16 +12,41 @@ Vector1024 = conlist(float, min_length=1024, max_length=1024)
 
 
 class DTO(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        str_strip_whitespace=True,
+        extra="forbid",
+        validate_assignment=True,
+    )
+
 
 class ProposalRequestDTO(DTO):
     query: str
     context: List[str]
-    temperature: float = 0.1
+    temperature: Optional[float] = 0.1
+
+    @field_validator("context", mode="before")
+    @classmethod
+    def _clean_context(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            raw = v.replace("---", "\n").replace(",", "\n")
+            parts = [p.strip() for p in raw.splitlines()]
+            return [p for p in parts if p]
+        if isinstance(v, (list, tuple)):
+            cleaned = [str(x).strip() for x in v if str(x).strip()]
+            return cleaned
+        return v
+
+
 
 class ProposalResponseDTO(DTO):
     markdown: str
     sections: List[str] = Field(default_factory=list)
+
+
+
 
 
 class DBModel(BaseModel):
@@ -30,6 +57,10 @@ class DBModel(BaseModel):
         validate_assignment=True,
         frozen=False,
     )
+
+
+
+
 
 class LlmContext(DBModel):
     id: int
@@ -44,21 +75,24 @@ class LlmContext(DBModel):
     lang: Optional[str] = None
 
 
+
 class LlmContextForModel(DBModel):
     id: Optional[int] = None
     document_id: Optional[str] = None
     order_idx: Optional[int] = None
     text_md: Optional[str] = None
 
+
 class RetrieverSegment(DBModel):
     id: int
     context_id: int
     chunk_index: int
     text_norm: str
-    embedding: Optional[Vector1024] = Field(default=None, alias="embedding_1024", description="pgvector dim=1024")
+    embedding: Optional[Vector1024] = Field(default=None, description="pgvector dim=1024")
     meta: Optional[JsonDict] = None
     section_key: Optional[str] = None
     lang: Optional[str] = None
+
 
 
 class SectionTitleMap(DBModel):
@@ -66,9 +100,18 @@ class SectionTitleMap(DBModel):
     canon_type: str
 
 
+
+class EmbeddingKind(str, Enum):
+    doc = "doc"
+    query = "query"
+    other = "other"
+
+
+
 class EmbeddingCache(DBModel):
     id: int
     model: str
+    kind: EmbeddingKind
     content_hash: str
     content_norm: str
     embedding: Vector1024

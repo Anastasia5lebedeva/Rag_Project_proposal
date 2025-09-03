@@ -73,12 +73,12 @@ def sync_segments(document_id: Optional[str] = None) -> int:
 
         upsert_sql = f"""
         INSERT INTO rag.retriever_segments
-          (context_id, chunk_index, text_norm, embedding_1024, meta, section_key, lang)
+          (context_id, chunk_index, text_norm, embedding, meta, section_key, lang)
         VALUES
           (%(context_id)s, %(chunk_index)s, %(text_norm)s, %(embedding_lit)s::vector({s.EMBED_DIM}), %(meta)s, %(section_key)s, %(lang)s)
         ON CONFLICT (context_id, chunk_index) DO UPDATE SET
           text_norm = EXCLUDED.text_norm,
-          embedding_1024 = EXCLUDED.embedding_1024,
+          embedding = EXCLUDED.embedding,
           meta = EXCLUDED.meta,
           section_key = EXCLUDED.section_key,
           lang = EXCLUDED.lang
